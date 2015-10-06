@@ -1,0 +1,28 @@
+{
+  "author": {
+    "name": "Neo Lo",
+    "email": "brendanpmurray@gmail.com",
+    "url": "http://coolfore.com/"
+  },
+  "name": "node-red-contrib-flow-dispatcher",
+  "version": "0.0.1",
+  "description": "Node-Red nodes for reading and writing Node-Red flows",
+  "repository": {
+    "url": "git+https://github.com/ADVANTECH-Corp/node-red-contrib-flow-dispatcher.git"
+  },
+  "keywords": [
+    "ADVANTECH",
+    "flows",
+    "dispatch"
+  ],
+  "license": "Apache 2.0",
+  "bugs": {
+    "url": "https://github.com/ADVANTECH-Corp/node-red-contrib-flow-dispatcher/issues"
+  },
+  "homepage": "https://github.com/ADVANTECH-Corp/node-red-contrib-flow-dispatcher",
+  "node-red": {
+    "nodes": {
+      "Flows": "Dispatcher-nodes/Dispatcher.js"
+    }
+  }
+}
