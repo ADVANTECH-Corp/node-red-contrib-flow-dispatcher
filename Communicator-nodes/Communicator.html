@@ -1,0 +1,172 @@
+<script>
+</script>
+<script type="text/javascript">
+    RED.nodes.registerType('comm', {
+        category: 'ADVANTECH',
+        color: 'rgb(230, 224, 248)',
+        defaults: {
+            name:     {value: ""},
+            sheet:    {value: "", required: true},
+            lcl_url:  {value: "", required: true},
+            dest_url: {value: "", required: true},
+            auth:     {value: false}
+        },
+        credentials: {
+            user: {type:"text"}
+            , password: {type: "password"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "arrow-in.png",
+        paletteLabel: "communicator",
+        label: function () {
+            return this.name || "communicator";
+        },
+        oneditprepare: function() {
+            toggle_auth();
+
+            var url = "127.0.0.1:1880";
+            $.get('get_local_url')
+            .done(function(res){
+                url = res;
+            })
+            .always(function() {
+                $("#node-input-lcl_url").attr("placeholder", url);
+            });
+        },
+        oneditsave: on_save_handler,
+        button: {
+            onclick: function(){
+                var node = this;
+                $.get('remote-deploy/' + this.id)
+                .done()
+                .fail(function(jqXHR, text_status, error_thrown) {
+                    RED.notify("Unexpected error: " + jqXHR.status + "(" + text_status + ")", "error");
+                });
+            }
+        }
+    });
+
+    RED.nodes.registerType('flow-dlg-in', {
+        category: 'ADVANTECH',
+        color: 'rgb(230, 224, 248)',
+        defaults: {
+            name: {value: ""}
+        },
+        inputs: 0,
+        outputs: 1,
+        icon: "bridge.png",
+        paletteLabel: "delegate in",
+        label: function () {
+            return this.name || "input delegate";
+        }
+    });
+
+    RED.nodes.registerType('flow-dlg-out', {
+        category: 'ADVANTECH',
+        color: 'rgb(230, 224, 248)',
+        defaults: {
+            name: {value: ""}
+        },
+        inputs: 1,
+        outputs: 0,
+        icon: "bridge.png",
+        paletteLabel: "delegate out",
+        align: "right",
+        label: function () {
+            return this.name || "output delegate";
+        }
+    });
+
+	function toggle_auth() {
+        var is_auth = $("#node-input-auth").prop("checked");
+        $("#node-input-user").closest("div").toggle(is_auth);
+        $("#node-input-password").closest("div").toggle(is_auth);
+    }
+
+    function on_save_handler() {
+        // clear values if authorization is not required
+        if(!$("#node-input-auth").prop("checked")) {
+            $("#node-input-user").val("");
+            $("#node-input-password").val("");
+        }
+    };
+</script>
+
+<script type="text/x-red" data-template-name="comm">
+    <div class="form-row">
+    <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Node Name">
+    </div>
+
+	<div class="form-row">
+        <label for="node-input-sheet"><i class="fa fa-list"></i> Sheet</label>
+        <input type="text" id="node-input-sheet" placeholder="Sheet 1" />
+    </div>
+
+	<div class="form-row">
+        <label for="node-input-lcl_url"><i class="fa fa-globe"></i> Local URL</label>
+        <input type="text" id="node-input-lcl_url" style="width:316px" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-dest_url"><i class="fa fa-globe"></i> To URL</label>
+        <input type="text" id="node-input-dest_url" placeholder="127.0.0.1:1880" style="width:316px" />
+    </div>
+
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-auth" style="width:20px;" onclick="toggle_auth()" />
+        <label for="node-input-auth">Authentication</label>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-user">
+            <i class="fa fa-user"></i> <span data-i18n="node-red:common.label.username">Username</span>
+        </label>
+        <input type="text" id="node-input-user">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-password">
+            <i class="fa fa-lock"></i> <span data-i18n="node-red:common.label.password">Password</span>
+        </label>
+        <input type="password" id="node-input-password">
+    </div>
+</script>
+
+<script type="text/x-red" data-template-name="flow-dlg-in">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name" />
+    </div>
+</script>
+
+<script type="text/x-red" data-template-name="flow-dlg-out">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name" />
+    </div>
+</script>
+
+
+<script type="text/x-red" data-help-name="comm">
+    <p>Can be connected by websocket nodes through url <code>ws(s)://HOST:PORT/NODE-ID</code>.</p>
+    <p>Click the button will dispatch user specified sheet to destination NodeRed server and the delegate input/output nodes will be replaced by websocket input/output nodes.</p>
+    <p>
+        <b>Note:</b><br />
+        1. Input <code>msg.payload</code> should be a string type value.<br />
+        2. The dispatched sheet must contain at least 1 delegate node (delegate-in/delegat-out or both).<br />
+        3. The dispatched sheet must contain at most 1 delegate-in node and 1 delegat-out node.<br />
+        4. After sheet dispatching, original flows on destination NodeRed server will be removed.<br />
+        5. If local NodeRed server is using https with "untrusted certificate", the remote NodeRed server may need to set environment variable <code>NODE_TLS_REJECT_UNAUTHORIZED="0"</code> to allow websocket connected.
+    </p>
+</script>
+
+<script type="text/x-red" data-help-name="flow-dlg-in">
+<p>Delegate input node, which will be replaced by a websocket input node at destination host by WS node.</p>
+</script>
+
+<script type="text/x-red" data-help-name="flow-dlg-out">
+<p>Delegate output node, which will be replaced by a websocket output node at destination host by WS node.</p>
+</script>

@@ -41,6 +41,7 @@ module.exports = function(RED) {
         IS_DEVEL = RED.settings.functionGlobalContext.is_devel;
     }
 
+
     // show msg on console when IS_DEVEL is false
     function show_console_msg(msg) {
         if(IS_DEVEL) {
@@ -81,6 +82,22 @@ module.exports = function(RED) {
     }
 
 
+    // enable or disable security checks for https certificate
+    function set_https_secure_check(is_enable) {
+        if(!is_enable) {
+            show_console_msg("[INFO] Turn OFF https security checks");
+
+            // disable https security checks to avoid DEPTH_ZERO_SELF_SIGNED_CERT error
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+        } else if(typeof process.env.NODE_TLS_REJECT_UNAUTHORIZED !== 'undefined') {
+            show_console_msg("[INFO] Turn ON https security checks");
+
+            // enable https security checks
+            delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+        }
+    }
+
+
     // send http request, on_end_handler will be triggered by 'end' event
     function send_request(node, send_url, method, headers, post_body, on_end_handler, on_err_handler) {
         var opts = urllib.parse(send_url);
@@ -88,14 +105,11 @@ module.exports = function(RED) {
             opts.headers = headers;
 
         var protocol = http;
-        if(/^https/.test(send_url)) {
-            // https
+        if(/^https/i.test(send_url)) {
             protocol = https;
 
-            if(IS_DEVEL) {
-                // disable security checks to avoid DEPTH_ZERO_SELF_SIGNED_CERT error
-                process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-            }
+            // disable check if is develop environment
+            set_https_secure_check(!IS_DEVEL);
         }
 
         var resp = {};
@@ -112,6 +126,11 @@ module.exports = function(RED) {
             });
 
             res.on('end', function() {
+                if(/^https/i.test(send_url)) {
+                    // enable check if is develop environment
+                    set_https_secure_check(IS_DEVEL);
+                }
+
                 if(on_end_handler) {
                     on_end_handler(resp);
                 }
@@ -119,6 +138,11 @@ module.exports = function(RED) {
         }).on('error', function(err) {
             resp.statusCode = err.code;
             resp.payload = get_error_msg(node, "Request Fail", resp.statusCode, send_url);
+
+            if(/^https/i.test(send_url)) {
+                // enable check if is develop environment
+                set_https_secure_check(IS_DEVEL);
+            }
 
             if(on_err_handler) {
                 on_err_handler(resp);
@@ -231,11 +255,15 @@ module.exports = function(RED) {
 
             pruned = [];
             for(var k in flows) {
-                if((flows[k].id === tab_id)         ||                                    // 1: user specified tab
-                   (flows[k].z  === tab_id)         ||                                    // 2: nodes on user specified tab
-                   (~sub_flows.indexOf(flows[k].z)) ||                                    // 3: nodes on dispatched subflows
+                if((flows[k].id === tab_id)         ||                                    // 1: user specified tab or
+                   (flows[k].z === tab_id)          ||                                    // 2: nodes on user specified tab or
+                   (~sub_flows.indexOf(flows[k].z)) ||                                    // 3: nodes on dispatched subflows or
                    ((flows[k].type === "subflow") && ~sub_flows.indexOf(flows[k].id))) {  // 4: dispatched subflows
                     pruned.push(flows[k]);  // push this node
+                } else if(!(flows[k].type === "tab" || flows[k].type === "subflow") &&    // 1: neither a tab nor a subflow and
+                          !(flows[k].x || flows[k].y || flows[k].z)) {                    // 2: no x, y and z property
+                    // push configuration node
+                    pruned.push(flows[k]);
                 }
             }
         }
@@ -319,7 +347,7 @@ module.exports = function(RED) {
     }
 
 
-    // callback when receive response from auto-dispatch-get-flow request
+    // callback when receive response from on-dispatch-get-flow request
     function on_dispatch_get_end(node, resp) {
         if(resp.statusCode === RESP_OK) {
             on_dispatch_auto_set(node, resp);
@@ -347,7 +375,7 @@ module.exports = function(RED) {
     }
 
 
-    // callback when error caused by auto-dispatch-get-flow request
+    // callback when error caused by on-dispatch-get-flow request
     function on_dispatch_get_error(node, resp) {
         if(resp.statusCode === 'ECONNRESET') {
             node.status({});  // clear error icon and text next to node
@@ -356,7 +384,7 @@ module.exports = function(RED) {
             node.url = node.src_url;
             node.protocol = "https"
             var send_url = node.protocol + "://" + node.url + "/flows";
-            show_console_msg("[INFO] HTTP auto-dispatch-get-flow fail, try HTTPS: " + send_url);
+            show_console_msg("[INFO] HTTP on-dispatch-get-flow fail, try HTTPS: " + send_url);
             send_request(node, send_url, METHOD_GET, {"Authorization": VALUE_AUTH}, null
                 , function(resp) {
                     on_dispatch_get_end(node, resp);
@@ -367,7 +395,7 @@ module.exports = function(RED) {
     }
 
 
-    // start to get a sheet from LOCALHOST
+    // start to get a sheet from node.src_url
     function on_dispatch_auto_get(node) {
         // get local flow, try http without authentication
         node.url = node.src_url;
@@ -384,7 +412,7 @@ module.exports = function(RED) {
     }
 
 
-    // callback when receive response from auto-dispatch-set-flow request
+    // callback when receive response from on-dispatch-set-flow request
     function on_dispatch_set_end(node, send_url, flows, resp) {
         if(resp.statusCode === RESP_NO_CONT) {
             resp.payload = get_succ_dispatch_msg(node, resp.statusCode, send_url);
@@ -419,7 +447,7 @@ module.exports = function(RED) {
     }
 
 
-    // callback when error caused by auto-dispatch-set-flow request
+    // callback when error caused by on-dispatch-set-flow request
     function on_dispatch_set_error(node, headers, flows, resp) {
         if(resp.statusCode === 'ECONNRESET') {
             node.status({});  // clear error icon and text next to node
@@ -427,7 +455,7 @@ module.exports = function(RED) {
             // try https without authentication
             node.protocol = "https"
             var send_url = node.protocol + "://" + node.url + "/flows";
-            show_console_msg("[INFO] HTTP auto-dispatch-set-flow fail, try HTTPS: " + send_url);
+            show_console_msg("[INFO] HTTP on-dispatch-set-flow fail, try HTTPS: " + send_url);
             send_request(node, send_url, METHOD_POST, headers, flows
                 , function(resp) {
                     on_dispatch_set_end(node, send_url, flows, resp);
@@ -463,6 +491,17 @@ module.exports = function(RED) {
     }
 
 
+    // start to read a local sheet
+    function init_flow_reader(node) {
+        node.status({});
+        if(node.is_auth) {
+            request_get_flow_with_token(node);
+        } else {
+            request_get_flow_without_token(node);
+        }
+    }
+
+
     // start to dispatch a local sheet to destination
     function init_auto_dispatch(node) {
         node.status({});  // clear node status
@@ -478,18 +517,19 @@ module.exports = function(RED) {
 		// Store local copies of the node configuration (as defined in the .html)
         var node = this;
         node.protocol = config.protocol;
-        node.url = config.url;
+        node.url = config.url.trim().replace(/\/$/,"");
         node.is_auth = config.auth;
         node.sheet = config.sheet;
+        node.once = config.once;
+
+        // triggerred on flow deploy or NodeRed server start
+        if(node.once) {
+            setTimeout(function() {init_flow_reader(node);}, 100);
+        }
 
 		// response to inputs
 		this.on('input', function(msg) {
-            node.status({});
-            if(node.is_auth) {
-                request_get_flow_with_token(node);
-            } else {
-                request_get_flow_without_token(node);
-            }
+            init_flow_reader(node);
         });
 	}
 
@@ -501,7 +541,7 @@ module.exports = function(RED) {
 		// Store local copies of the node configuration (as defined in the .html)
         var node = this;
         node.protocol = config.protocol;
-        node.url = config.url;
+        node.url = config.url.trim().replace(/\/$/,"");
         node.is_auth = config.auth;
 
 		// response to inputs
@@ -525,7 +565,7 @@ module.exports = function(RED) {
 		// Store local copies of the node configuration (as defined in the .html)
         var node = this;
         node.src_url = LOCALHOST;
-        node.dest_url = config.url;
+        node.dest_url = config.url.trim().replace(/^http:\/\/|^https:\/\/|\/$/gi,"");
         node.is_auth = config.auth;
         node.sheet = config.sheet;
         node.once = config.once;
@@ -560,6 +600,21 @@ module.exports = function(RED) {
         credentials: {
             user: {type:"text"}
             , password: {type: "password"}
+        }
+    });
+
+    // triggered by FlowReader button clicked
+    RED.httpAdmin.get("/flow-reader/:id", RED.auth.needsPermission("inject.write"), function(req, res) {
+        var node = RED.nodes.getNode(req.params.id);
+        if (node != null) {
+            try {
+                init_flow_reader(node);
+                res.send(RESP_OK);
+            } catch(err) {
+                res.send(RESP_INTER_ERR);
+            }
+        } else {
+            res.send(RESP_NOT_FOUND);
         }
     });
 

@@ -53,6 +53,12 @@
         <label for="node-input-sheet"><i class="fa fa-list"></i> Sheet</label>
         <input type="text" id="node-input-sheet" placeholder="Sheet 1" />
     </div>
+
+    <div class="form-row" id="node-once">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-once" style="display: inline-block; width: 20px; vertical-align: top;">
+        <label for="node-input-once" style="width: 70%;">Inject once at start/deploy?</label>
+    </div>
 </script>
 
 <script type="text/x-red" data-template-name="flow-writer">
@@ -151,7 +157,7 @@
 <script type="text/x-red" data-help-name="flow-cloner">
     <p>Node to retrieve flows from localhost and dispatch it to a NodeRed server indicated by URL.</p>
     <p><b>URL</b> is a required input field, indicates the server which's flows will be replaced. All current flows on URL host will be removed.</p>
-    <p>If authentication is required, same user name and password will be used in both source and destinaton server.</p>
+    <p>Source NodeRed server URL is fixed to "localhost:1880". If authentication is required, same user name and password will be used in both source and destinaton server.</p>
     <p>Result of dispatching flows can be found in <b>msg.payload</b>.</p>
 </script>
 
@@ -178,6 +184,7 @@
 			, url:      {value: "127.0.0.1:1880", required: true}
             , sheet:    {value: "", required: true}
             , auth:     {value: false}
+            , once:     {value: false}
         }
         , credentials: {
             user: {type:"text"}
@@ -196,6 +203,16 @@
         }
         , oneditprepare: toggle_auth
         , oneditsave: on_save_handler
+        , button: {
+            onclick: function(){
+                var node = this;
+                $.get('flow-reader/' + this.id)
+                .done()
+                .fail(function(jqXHR, text_status, error_thrown) {
+                    RED.notify("Unexpected error: " + jqXHR.status + "(" + text_status + ")", "error");
+                });
+            }
+        }
     });
 
     RED.nodes.registerType('flow-writer', {
@@ -228,11 +245,11 @@
     RED.nodes.registerType('flow-cloner', {
         category: 'ADVANTECH'         // the palette category
         , defaults: {                 // defines the editable properties of the node
-            name:        {value: ""}
-			, url:       {value: "", required: true}
-            , auth:      {value: false}
-            , sheet:     {value: ""}
-            , once:      {value: false}
+            name:    {value: ""}
+			, url:   {value: "", required: true}
+            , auth:  {value: false}
+            , sheet: {value: "", required: true}
+            , once:  {value: false}
         }
         , credentials: {
             user: {type:"text"}
@@ -255,9 +272,9 @@
             onclick: function(){
                 var node = this;
                 $.get('auto-clone/' + this.id)
-                .success()
-                .error(function(jqXHR, textStatus, errorThrown) {
-                    RED.notify("Unexpected error: " + jqXHR.status + "(" + textStatus + ")", "error");
+                .done()
+                .fail(function(jqXHR, text_status, error_thrown) {
+                    RED.notify("Unexpected error: " + jqXHR.status + "(" + text_status + ")", "error");
                 });
             }
         }

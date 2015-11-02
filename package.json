@@ -1,12 +1,15 @@
 {
   "author": {
     "name": "Neo Lo",
-    "email": "brendanpmurray@gmail.com",
-    "url": "http://coolfore.com/"
+    "email": "neo.lo@advantech.com.tw",
+    "url": "https://www.npmjs.com/~neo.lo"
   },
   "name": "node-red-contrib-flow-dispatcher",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Node-Red nodes for reading and writing Node-Red flows",
+  "dependencies": {
+    "ws": ">=0.8.0"
+  },
   "repository": {
     "url": "git+https://github.com/ADVANTECH-Corp/node-red-contrib-flow-dispatcher.git"
   },
@@ -23,7 +26,8 @@
   "homepage": "https://github.com/ADVANTECH-Corp/node-red-contrib-flow-dispatcher",
   "node-red": {
     "nodes": {
-      "Flows": "Dispatcher-nodes/Dispatcher.js"
+      "Dispatcher": "Dispatcher-nodes/Dispatcher.js"
+      , "Communicator": "Communicator-nodes/Communicator.js"
     }
   }
 }
