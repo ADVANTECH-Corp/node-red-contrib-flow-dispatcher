@@ -385,9 +385,9 @@ module.exports = function (RED) {
                 var sub_flows = traverse_subflows(flows, [tab_id], []);
 
                 var protocol = (/^https$/i.test(node.protocol))? "wss" : "ws";
-                var node_id = get_node_id();
+                var cfg_id = get_node_id();
                 var ws_cfg = {
-                    "id": node_id
+                    "id": cfg_id
                     , "type": "websocket-client"
                     , "path": (protocol + "://" + node.local_url + "/" + node.id)
                     , "wholemsg": "false"
@@ -410,14 +410,14 @@ module.exports = function (RED) {
 
                             // replace delegate-in node with websocket-in node
                             flows[k].server = "";
-                            flows[k].client = node_id;
+                            flows[k].client = cfg_id;
                             if(flows[k].type === "flow-dlg-in") {
                                 ++d_in;
 
                                 // add a function node to remove msg._session from websocket input
-                                node_id = get_node_id();
+                                var func_id = get_node_id();
                                 func_node = {
-                                    "id": node_id
+                                    "id": func_id
                                     , "type": "function"
                                     , "name":"reset-ws-sess"
                                     , "func":"if(msg._session) {\n" +
@@ -436,7 +436,7 @@ module.exports = function (RED) {
 
                                 // connect websocket-in to above function node
                                 flows[k].type = "websocket in";
-                                flows[k].wires = [[node_id]];
+                                flows[k].wires = [[func_id]];
                             } else {
                                 ++d_out;
                                 flows[k].type = "websocket out";

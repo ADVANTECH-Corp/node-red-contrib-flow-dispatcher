@@ -213,6 +213,7 @@ If "Inject once at start/deploy?" is checked in flow-reader or flow-cloner node,
 ## History
 - 0.0.1 - October 2015 : Initial Release.
 - 0.0.2 - November 2015 : Add flow-communicator, delegate-input and delegate-output nodes.
+- 0.0.3 - November 2015 : Fix issue about fail to send return message from remote NodeRed flow dispatched by communicator node.
 
 ## Authors
 * Neo Lo (https://github.com/neo7206)
